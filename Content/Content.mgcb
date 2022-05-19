@@ -13,3 +13,27 @@
 
 #---------------------------------- Content ---------------------------------#
 
+#begin circle.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:circle.fx
+
+#begin network.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:network.fx
+
+#begin square.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:square.fx
+
+#begin texture.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:texture.fx
+
