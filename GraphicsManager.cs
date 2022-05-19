@@ -10,7 +10,7 @@ namespace perceptron
     {
         GraphicsDevice gd;
 
-        public Effect network, drawEffect, circle, square;
+        public Effect network, drawEffect, circle, square, renderText;
 
         Matrix view, projection;
 
@@ -28,25 +28,27 @@ namespace perceptron
         public GraphicsManager(GraphicsDevice _gd)
         {
             gd = _gd;
-            inputs = new RenderTarget2D(gd, size, size);
-            weigths = new Texture2D(gd, size, size);
+            inputs = new RenderTarget2D(gd, size, size, false, SurfaceFormat.Vector4, DepthFormat.Depth16);
+            weigths = new Texture2D(gd, size, size, false, SurfaceFormat.Vector4);
 
             rand = new Random(69);
 
-            Color[] randColors = new Color[size * size];
+            Vector4[] randColors = new Vector4[size * size];
+            //for (int i = 0; i < size * size; i++)
+            //{
+            //    int r = 255; rand.Next(0, 255);
+            //    randColors[i] = new Color(r, r, r);
+            //}
+            //inputs.SetData(randColors);
             for (int i = 0; i < size * size; i++)
             {
-                int r = rand.Next(0, 255);
-                randColors[i] = new Color(r, r, r);
-            }
-            inputs.SetData(randColors);
-            for (int i = 0; i < size * size; i++)
-            {
-                int r = rand.Next(0, 255); 
-                randColors[i] = new Color(r, r, r);
+                //int r = 255;//rand.Next(0, 255); 
+                randColors[i] = new Vector4(0, 0, 0, 1f);
             }
             weigths.SetData(randColors);
-            output = new RenderTarget2D(gd, size, size);       
+            weigths.GetData(randColors);
+            output = new RenderTarget2D(gd, size, size, false, SurfaceFormat.Vector4, DepthFormat.Depth16);
+
         }
 
         public void Begin(int x, int y, int w, int h)
@@ -176,7 +178,65 @@ namespace perceptron
             // alimenta o histórico 
             return this;
         }
-        public GraphicsManager flush(Texture2D tex)
+        public GraphicsManager back(Texture2D input = null, Texture2D weigths = null, RenderTarget2D output = null, float bias = 0, float sign = 1)
+        {
+            //if (vertexCount == 0) return this;
+            this.bias = bias;
+            Draw(0, 0, size, size, trainer: true);
+
+            RasterizerState rast = new RasterizerState();
+            rast.FillMode = FillMode.Solid;
+            rast.CullMode = CullMode.None;
+
+            gd.RasterizerState = rast;
+            gd.SamplerStates[0] = SamplerState.PointClamp;
+
+            network.Parameters["WorldViewProjection"].SetValue(view * projection);
+
+            network.Parameters["inputs"].SetValue(input);
+            network.Parameters["weigths"].SetValue(weigths);
+            network.Parameters["sign"].SetValue(sign);
+
+            gd.SetRenderTarget(output);
+
+            network.CurrentTechnique.Passes[1].Apply();
+            gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertex, 0, vertexCount, index, 0, indexCount / 3);
+
+            vertexCount = indexCount = 0;
+            gd.SetRenderTarget(null);
+            //Stream s = File.Create("meu ovo.png");
+            //output.SaveAsPng(s, 200, 200);
+            Vector4[] temp = new Vector4[200 * 200];
+            output.GetData(temp);
+            //  var a = temp;
+            weigths.SetData(temp);
+            //s.Close();
+            //s = File.Create("meu outro ovo.png");
+            //weigths.SaveAsPng(s, 200, 200);
+            //s.Close();
+            //alimenta o histórico
+            return this;
+        }
+        (Vector4 min, Vector4 max) GetMinMax(Texture2D t)
+        {
+            Vector4 min = Vector4.One * float.MaxValue, max = Vector4.One * float.MinValue;
+            Vector4[] data = new Vector4[t.Width * t.Height];
+            t.GetData(data);
+            for(int i = 0; i < data.Length; i++)
+            {
+                min.X = Math.Min(min.X, data[i].X);
+                min.Y = Math.Min(min.Y, data[i].Y);
+                min.Z = Math.Min(min.Z, data[i].Z);
+                min.W = Math.Min(min.W, data[i].W);
+
+                max.X = Math.Max(max.X, data[i].X);
+                max.Y = Math.Max(max.Y, data[i].Y);
+                max.Z = Math.Max(max.Z, data[i].Z);
+                max.W = Math.Max(max.W, data[i].W);
+            }
+            return (min, max);
+        }
+        public GraphicsManager flush(Texture2D tex, int pass = 0)
         {
             if (vertexCount == 0) return this;
 
@@ -190,15 +250,138 @@ namespace perceptron
             gd.SamplerStates[0] = SamplerState.PointClamp;
 
             drawEffect.Parameters["WorldViewProjection"].SetValue(view * projection);
+            (Vector4 min, Vector4 max) = GetMinMax(tex);
             drawEffect.Parameters["tex"].SetValue(tex);
+            drawEffect.Parameters["vmin"].SetValue(min);
+            drawEffect.Parameters["vmax"].SetValue(max);
 
-            drawEffect.CurrentTechnique.Passes[0].Apply();
+            drawEffect.CurrentTechnique.Passes[pass].Apply();
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertex, 0, vertexCount, index, 0, indexCount / 3);
 
-            vertexCount = indexCount = 0;            
+            vertexCount = indexCount = 0;
             //Stream s = File.Create("screen.png");
             //renderScreen.SaveAsPng(s, 960, 540); 
             return this;
-        }       
+        }
+        public GraphicsManager flushText()
+        {
+            if (vertexCount == 0) return this;
+
+            gd.SetRenderTarget(null);
+
+            RasterizerState rast = new RasterizerState();
+            rast.FillMode = FillMode.Solid;
+            rast.CullMode = CullMode.None;
+            gd.RasterizerState = rast;
+            gd.BlendState = BlendState.NonPremultiplied;
+            gd.SamplerStates[0] = SamplerState.PointClamp;
+
+            renderText.Parameters["WorldViewProjection"].SetValue(view * projection);
+            //drawEffect.Parameters["tex"].SetValue(tex);
+
+            renderText.CurrentTechnique.Passes[0].Apply();
+            gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertex, 0, vertexCount, index, 0, indexCount / 3);
+
+            vertexCount = indexCount = 0;
+            //Stream s = File.Create("screen.png");
+            //renderScreen.SaveAsPng(s, 960, 540); 
+            return this;
+        }
+        public SpriteFont sprfont;
+        public GraphicsManager DrawString(string text, Vector2 pos, float _size = 1, bool rtl = false)
+        {
+            Vector2 offset = Vector2.Zero;
+            bool firstGlyph = true;
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (c == '\r') continue;
+                if (c == '\n')
+                {
+                    offset.X = 0;
+                    offset.Y += sprfont.LineSpacing;
+                    firstGlyph = true;
+                }
+                //int glyphIndex = sprfont.
+                var glyph = sprfont.GetGlyphs()[c];
+
+                if (firstGlyph)
+                {
+                    offset.X = Math.Max(glyph.LeftSideBearing, 0);
+                    firstGlyph = false;
+                }
+                else
+                {
+                    offset.X += sprfont.Spacing + glyph.LeftSideBearing;
+                }
+                Vector2 currentOff = offset;
+                currentOff.X += glyph.Cropping.X;
+                currentOff.Y += glyph.Cropping.Y;
+
+                Vector2 size = Vector2.One * _size;
+
+                Matrix transform = Matrix.Identity;
+
+                transform.M11 = size.X;
+                transform.M22 = size.Y;
+                transform.M41 = pos.X * 0;
+                transform.M42 = pos.Y * 0;
+
+                offset.X += glyph.Width + glyph.RightSideBearing;
+
+                EnsureSpace(6, 4);
+
+                int colorID = 0; float packedData = 0; int z = 0; byte flipX = 0; byte flipY = 0;
+
+                float fw = size.X, fh = size.Y;
+
+                fw = fh = size.X;
+
+
+                float _x = glyph.BoundsInTexture.X, _y = glyph.BoundsInTexture.Y,
+                    _w = glyph.BoundsInTexture.Width, _h = glyph.BoundsInTexture.Height;//sprfont.Texture.Width, _h = sprfont.Texture.Height;
+                _w += _x;
+                _h += _y;
+
+                _x /= sprfont.Texture.Width;
+                _y /= sprfont.Texture.Height;
+                _w /= sprfont.Texture.Width;
+                _h /= sprfont.Texture.Height;
+                //_x = _y = 0;
+                //_w = _h = 1;
+                float f = 1111f;
+
+                Color cor = Color.White;//Vector3 cor = new Vector3(colorID, size.Y, packedData);
+
+                index[indexCount++] = (short)(vertexCount + 0);
+                index[indexCount++] = (short)(vertexCount + 1);
+                index[indexCount++] = (short)(vertexCount + 2);
+                index[indexCount++] = (short)(vertexCount + 1);
+                index[indexCount++] = (short)(vertexCount + 3);
+                index[indexCount++] = (short)(vertexCount + 2);
+
+                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(0, 0, z), cor, new Vector2(_x, _y));
+                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(1, 0, z), cor, new Vector2(_w, _y));
+                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(0, 1, z), cor, new Vector2(_x, _h));
+                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(1, 1, z), cor, new Vector2(_w, _h));
+
+                Matrix world = Matrix.CreateTranslation(new Vector3(-.5f, -.5f, 0) * 0)
+                    //   * Matrix.CreateRotationZ(MathHelper.PiOver2 * flipX)
+                    * Matrix.CreateScale(new Vector3(glyph.BoundsInTexture.Width * size.X, glyph.BoundsInTexture.Height * size.Y, 1))
+                    * Matrix.CreateTranslation(new Vector3(pos + currentOff, 0));
+
+                for (int j = vertexCount - 4; j < vertexCount; j++)
+                    Vector3.Transform(ref vertex[j].Position, ref world, out vertex[j].Position);
+            }
+            return this;
+        }
+        private void EnsureSpace(int indexSpace, int vertexSpace)
+        {
+            if (indexCount + indexSpace >= index.Length)
+                Array.Resize(ref index, Math.Max(indexCount + indexSpace, index.Length * 2));
+            if (vertexCount + vertexSpace >= vertex.Length)
+                Array.Resize(ref vertex, Math.Max(vertexCount + vertexSpace, vertex.Length * 2));
+        }
     }
 }
