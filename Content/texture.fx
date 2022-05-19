@@ -23,6 +23,8 @@ struct VertexShaderOutput
 	float2 tex : TEXCOORD0;
 };
 
+float4 vmin, vmax;
+
 Texture2D tex;
 sampler2D tex_sampler = sampler_state
 {
@@ -39,10 +41,25 @@ VertexShaderOutput MainVS(in VertexShaderInput input)
 
 	return output;
 }
+float normalize(float value, float vmin, float vmax, float newMin, float newMax)
+{
+	return (value - vmin) * ((newMax - newMin) / (vmax - vmin)) + newMin;
+}
 
 float4 MainPS(VertexShaderOutput input) : COLOR
 {
-	return tex2D(tex_sampler, input.tex) * input.col;//
+	float4 col = tex2D(tex_sampler, input.tex);
+	col.r = normalize(col.r, vmin, vmax, 0., 1.);
+	col.g = normalize(col.g, vmin, vmax, 0., 1.);
+	col.b = normalize(col.b, vmin, vmax, 0., 1.);
+	col.a = 1.;
+	return  col * input.col;//
+}
+
+float4 normalPS(VertexShaderOutput input) : COLOR
+{
+	float4 col = tex2D(tex_sampler, input.tex);	
+	return  col * input.col;
 }
 
 technique BasicColorDrawing
@@ -51,5 +68,10 @@ technique BasicColorDrawing
 	{
 		VertexShader = compile VS_SHADERMODEL MainVS();
 		PixelShader = compile PS_SHADERMODEL MainPS();
+	}
+	pass P1
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL normalPS();
 	}
 };
