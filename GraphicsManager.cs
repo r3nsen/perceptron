@@ -178,6 +178,7 @@ namespace perceptron
             // alimenta o histórico 
             return this;
         }
+        Vector4[] data = new Vector4[size * size];
         public GraphicsManager back(Texture2D input = null, Texture2D weigths = null, RenderTarget2D output = null, float bias = 0, float sign = 1)
         {
             //if (vertexCount == 0) return this;
@@ -220,7 +221,7 @@ namespace perceptron
         (Vector4 min, Vector4 max) GetMinMax(Texture2D t)
         {
             Vector4 min = Vector4.One * float.MaxValue, max = Vector4.One * float.MinValue;
-            Vector4[] data = new Vector4[t.Width * t.Height];
+            //Vector4[] data = new Vector4[t.Width * t.Height];
             t.GetData(data);
             for(int i = 0; i < data.Length; i++)
             {
