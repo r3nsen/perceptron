@@ -57,6 +57,7 @@ namespace perceptron
         int csteps, cerros;
         int[] errosList = new int[500];
         int errorsCount;
+        Vector4[] output = new Vector4[200 * 200];
         protected override void Draw(GameTime gameTime)
         {
             if (!started) return;
@@ -67,6 +68,8 @@ namespace perceptron
                 fsteps++;
                 ferros = erros;
                 errosList[errorsCount++] = erros;
+                if(errorsCount == errosList.Length)
+                    Array.Resize(ref errosList, errosList.Length + 10);
                 if (erros == 0)
                 {
                     trained = true;
@@ -79,17 +82,17 @@ namespace perceptron
                 gm.Begin(0, 0, 200, 200);
 
                 // preenche os inputs
-                id = rand.Next(0, 2);
+                id = rand.Next(0, 2); 
                 if (id == 1)
                     gm.fillCircle(new Vector2((float)rand.NextDouble() - .5f, (float)rand.NextDouble() - .5f),
                         (float)rand.NextDouble() / 2 + .2f);
                 else
                     gm.fillRect(new Vector2((float)rand.NextDouble() - .5f, (float)rand.NextDouble() - .5f),
                         new Vector2((float)rand.NextDouble() / 2, (float)rand.NextDouble() / 2));
-
+                
                 gm.feed(input: gm.inputs, weigths: gm.weigths, output: gm.output, bias: 0);
-
-                Vector4[] output = new Vector4[200 * 200];
+              //  return;
+                
                 gm.output.GetData(output);
 
                 //                float soma = 0;
@@ -102,6 +105,7 @@ namespace perceptron
 
 
             }
+            
             if (result == id) // sucesso
                 color = new Color(.5f, 1f, 1f);
             else              // falha
@@ -115,15 +119,17 @@ namespace perceptron
             gm.Draw(x - 110, y, 200, 200).flush(gm.inputs, 1);
             gm.Draw(x * 2 - 100, y, 200, 200).flush(gm.weigths);
             gm.Draw(x * 3 - 100 + 10, y, 200, 200, cor: color).flush(gm.output);
-
+            
             if (result != id && !trained)
             {
                 gm.Begin(0, 0, 200, 200);
+                
                 gm.back(input: gm.inputs, weigths: gm.weigths, output: gm.output, bias: 0, sign: (id * 2 - 1));
                 ++erros;
             }
+            
             if (!trained) ++steps;
-
+            
             gm.Begin(0, 0, _graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
             gm.DrawString("Steps: " + fsteps + " - err: " + erros + " - count: " + steps + "/" + MaxSteps, new Vector2(x - 110, 2 * y + 100)).flushText();
             for(int i = errorsCount - 1; i >= errorsCount - 24 && i >= 0; i--)
@@ -153,7 +159,7 @@ namespace perceptron
 
                     gm.feed(input: gm.inputs, weigths: gm.weigths, output: gm.output, bias: 0);
 
-                    Vector4[] output = new Vector4[200 * 200];
+                    //Vector4[] output = new Vector4[200 * 200];
                     gm.output.GetData(output);
 
                     //                float soma = 0;
