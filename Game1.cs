@@ -5,6 +5,8 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization.Formatters.Binary;
+//using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 
 namespace perceptron
@@ -53,10 +55,64 @@ namespace perceptron
             if (Keyboard.GetState().IsKeyDown(Keys.E)) showstatus = true;
             if (Keyboard.GetState().IsKeyDown(Keys.R)) showerrhistoric = true;
             if (Keyboard.GetState().IsKeyDown(Keys.T)) showfps = shownetwork = showstatus = showerrhistoric = true;
-            
+            if (Keyboard.GetState().IsKeyDown(Keys.S))
+            {
+                savedata();
+                loaddata();
+                while (Keyboard.GetState().IsKeyDown(Keys.S)) Thread.Sleep(500);
+            }
             base.Update(gameTime);
         }
+        void savedata()
+        {
+            data d = new data();
+            d.errors = errosList;
+            d.errorsCount = errorsCount;
+            d.weigths = new (float x, float y, float z, float w)[200 * 200];
+            Vector4[] temp = new Vector4[200 * 200];
+            gm.weigths.GetData(temp);
+            for (int i = 0; i < 200 * 200; i++)
+            {
+                d.weigths[i].x = temp[i].X;
+                d.weigths[i].y = temp[i].Y;
+                d.weigths[i].z = temp[i].Z;
+                d.weigths[i].w = temp[i].W;
+            }
+            BinaryFormatter bin = new BinaryFormatter();
+            Stream s = File.Create("data.bin");
+            bin.Serialize(s, d);
+            s.Close();
+        }
+        void loaddata()
+        {
+            if (File.Exists("data.bin"))
+            {
+                BinaryFormatter bin = new BinaryFormatter();
+                Stream s = File.Open("data.bin", FileMode.Open);
+                data d = (data)bin.Deserialize(s);
+                s.Close();
+                Vector4[] temp = new Vector4[200 * 200];                
 
+                for (int i = 0; i < 200 * 200; i++)
+                {
+                    temp[i].X = d.weigths[i].x;
+                    temp[i].Y = d.weigths[i].y;
+                    temp[i].Z = d.weigths[i].z;
+                    temp[i].W = d.weigths[i].w;
+                }
+                gm.weigths.SetData(temp);
+                errosList = d.errors;
+                errorsCount = d.errorsCount;
+            }
+        }
+        [Serializable]
+        struct data
+        {
+            public int[] errors;
+            public int errorsCount;
+            public (float x, float y, float z, float w)[] weigths;
+
+        }
         void restoreData()
         {
             string pesos = File.ReadAllText(@"C:\Users\Renato\Desktop\perceptron dump\data array dump.txt");
@@ -266,10 +322,11 @@ namespace perceptron
             if (showstatus)
             {
                 gm.Begin(0, 0, _graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
-                gm.DrawString("Steps: " + fsteps + " - err: " + erros + " - count: " + steps + "/" + MaxSteps, new Vector2(x - 110, 2 * y + 100)).flushText();               
-            }           
-            if(showerrhistoric)
+                gm.DrawString("Steps: " + fsteps + " - err: " + erros + " - count: " + steps + "/" + MaxSteps, new Vector2(x - 110, 2 * y + 100)).flushText();
+            }
+            if (showerrhistoric)
             {
+                gm.Begin(0, 0, _graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
                 for (int i = errorsCount - 1; i >= errorsCount - 24 && i >= 0; i--)
                 {
                     gm.DrawString("" + (fsteps - (errorsCount - i)) + " - " + errosList[i], new Vector2(10 + ((-i + errorsCount - 1) / 6) * 160, 10 + ((-i + errorsCount - 1) % 6 + 1) * 15), .5f).flushText();
