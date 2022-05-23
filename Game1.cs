@@ -59,7 +59,8 @@ namespace perceptron
             {
                 savedata();
                 loaddata();
-                while (Keyboard.GetState().IsKeyDown(Keys.S)) Thread.Sleep(500);
+             //   while (Keyboard.GetState().IsKeyDown(Keys.S)) 
+                    Thread.Sleep(500);
             }
             base.Update(gameTime);
         }
