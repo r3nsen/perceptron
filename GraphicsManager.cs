@@ -34,12 +34,7 @@ namespace perceptron
             rand = new Random(69);
 
             Vector4[] randColors = new Vector4[size * size];
-            //for (int i = 0; i < size * size; i++)
-            //{
-            //    int r = 255; rand.Next(0, 255);
-            //    randColors[i] = new Color(r, r, r);
-            //}
-            //inputs.SetData(randColors);
+
             for (int i = 0; i < size * size; i++)
             {
                 //int r = 255;//rand.Next(0, 255); 
@@ -48,7 +43,7 @@ namespace perceptron
             weigths.SetData(randColors);
             weigths.GetData(randColors);
             output = new RenderTarget2D(gd, size, size, false, SurfaceFormat.Vector4, DepthFormat.Depth16);
-
+            gdInit();
         }
 
         public void Begin(int x, int y, int w, int h)
@@ -62,12 +57,6 @@ namespace perceptron
         }
         public GraphicsManager Draw(int x, int y, int w, int h, Color? cor = null, bool trainer = false)
         {
-            //if (texture != tex && texture != null)
-            //    flush();
-
-            //texture = tex;
-
-            //EnsureSpace(6, 4);
             if (trainer) cor = new Color(bias, bias, bias);
             else if (cor == null) cor = Color.White;
 
@@ -84,7 +73,6 @@ namespace perceptron
             vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(1, 1, 0), (Color)cor, new Vector2(1, 1));
 
             Matrix world = Matrix.CreateTranslation(new Vector3(-.5f * 0, -.5f * 0, 0))
-                //* Matrix.CreateRotationZ(MathHelper.PiOver2 * flipX)
                 * Matrix.CreateScale(new Vector3(w, h, 1))
                 * Matrix.CreateTranslation(new Vector3(x, y, 0));
 
@@ -100,16 +88,27 @@ namespace perceptron
             // in -> [ w -> sum ] -> [ w -> sum ] -> out 
         }
 
-        public GraphicsManager fillCircle(Vector2 pos, float radius)
+        void gdInit()
         {
-            Draw(0, 0, size, size);
-
             RasterizerState rast = new RasterizerState();
             rast.FillMode = FillMode.Solid;
             rast.CullMode = CullMode.None;
 
             gd.RasterizerState = rast;
+            gd.BlendState = BlendState.NonPremultiplied;
             gd.SamplerStates[0] = SamplerState.PointClamp;
+        }
+
+        public GraphicsManager fillCircle(Vector2 pos, float radius)
+        {
+            Draw(0, 0, size, size);
+
+            //RasterizerState rast = new RasterizerState();
+            //rast.FillMode = FillMode.Solid;
+            //rast.CullMode = CullMode.None;
+
+            //gd.RasterizerState = rast;
+            //gd.SamplerStates[0] = SamplerState.PointClamp;
 
             circle.Parameters["WorldViewProjection"].SetValue(view * projection);
 
@@ -129,12 +128,12 @@ namespace perceptron
         {
             Draw(0, 0, size, size);
 
-            RasterizerState rast = new RasterizerState();
-            rast.FillMode = FillMode.Solid;
-            rast.CullMode = CullMode.None;
+            //RasterizerState rast = new RasterizerState();
+            //rast.FillMode = FillMode.Solid;
+            //rast.CullMode = CullMode.None;
 
-            gd.RasterizerState = rast;
-            gd.SamplerStates[0] = SamplerState.PointClamp;
+            //gd.RasterizerState = rast;
+            //gd.SamplerStates[0] = SamplerState.PointClamp;
 
             square.Parameters["WorldViewProjection"].SetValue(view * projection);
 
@@ -167,30 +166,22 @@ namespace perceptron
 
             network.Parameters["inputs"].SetValue(input);
             network.Parameters["weigths"].SetValue(weigths);
-
+            var temp = gd.GetRenderTargets();
             gd.SetRenderTarget(output);
 
             network.CurrentTechnique.Passes[0].Apply();
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertex, 0, vertexCount, index, 0, indexCount / 3);
 
             vertexCount = indexCount = 0;
-            gd.SetRenderTarget(null);
+            gd.SetRenderTargets(temp);
             // alimenta o histórico 
             return this;
         }
         Vector4[] data = new Vector4[size * size];
         public GraphicsManager back(Texture2D input = null, Texture2D weigths = null, RenderTarget2D output = null, float bias = 0, float sign = 1)
         {
-            //if (vertexCount == 0) return this;
             this.bias = bias;
             Draw(0, 0, size, size, trainer: true);
-
-            RasterizerState rast = new RasterizerState();
-            rast.FillMode = FillMode.Solid;
-            rast.CullMode = CullMode.None;
-
-            gd.RasterizerState = rast;
-            gd.SamplerStates[0] = SamplerState.PointClamp;
 
             network.Parameters["WorldViewProjection"].SetValue(view * projection);
 
@@ -205,27 +196,20 @@ namespace perceptron
 
             vertexCount = indexCount = 0;
             gd.SetRenderTarget(null);
-            //Stream s = File.Create("meu ovo.png");
-            //output.SaveAsPng(s, 200, 200);
-            Vector4[] temp = new Vector4[200 * 200];
-            output.GetData(temp);
-            //  var a = temp;
-            weigths.SetData(temp);
-            //s.Close();
-            //s = File.Create("meu outro ovo.png");
-            //weigths.SaveAsPng(s, 200, 200);
-            //s.Close();
-            //alimenta o histórico
+
+            output.GetData(data);
+            weigths.SetData(data);
+
             return this;
         }
         (Vector4 min, Vector4 max) GetMinMax(Texture2D t)
         {
             Vector4 min = Vector4.One * float.MaxValue, max = Vector4.One * float.MinValue;
-            //Vector4[] data = new Vector4[t.Width * t.Height];
             t.GetData(data);
-            for(int i = 0; i < data.Length; i++)
+            int len = data.Length;
+            for (int i = 0; i < len; i++)
             {
-                min.X = Math.Min(min.X, data[i].X);
+                min.X = data[i].X < min.X ? data[i].X : min.X;
                 min.Y = Math.Min(min.Y, data[i].Y);
                 min.Z = Math.Min(min.Z, data[i].Z);
                 min.W = Math.Min(min.W, data[i].W);
@@ -243,13 +227,6 @@ namespace perceptron
 
             gd.SetRenderTarget(null);
 
-            RasterizerState rast = new RasterizerState();
-            rast.FillMode = FillMode.Solid;
-            rast.CullMode = CullMode.None;
-            gd.RasterizerState = rast;
-
-            gd.SamplerStates[0] = SamplerState.PointClamp;
-
             drawEffect.Parameters["WorldViewProjection"].SetValue(view * projection);
             (Vector4 min, Vector4 max) = GetMinMax(tex);
             drawEffect.Parameters["tex"].SetValue(tex);
@@ -260,32 +237,18 @@ namespace perceptron
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertex, 0, vertexCount, index, 0, indexCount / 3);
 
             vertexCount = indexCount = 0;
-            //Stream s = File.Create("screen.png");
-            //renderScreen.SaveAsPng(s, 960, 540); 
             return this;
         }
         public GraphicsManager flushText()
         {
             if (vertexCount == 0) return this;
 
-            gd.SetRenderTarget(null);
-
-            RasterizerState rast = new RasterizerState();
-            rast.FillMode = FillMode.Solid;
-            rast.CullMode = CullMode.None;
-            gd.RasterizerState = rast;
-            gd.BlendState = BlendState.NonPremultiplied;
-            gd.SamplerStates[0] = SamplerState.PointClamp;
-
             renderText.Parameters["WorldViewProjection"].SetValue(view * projection);
-            //drawEffect.Parameters["tex"].SetValue(tex);
 
             renderText.CurrentTechnique.Passes[0].Apply();
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertex, 0, vertexCount, index, 0, indexCount / 3);
-
             vertexCount = indexCount = 0;
-            //Stream s = File.Create("screen.png");
-            //renderScreen.SaveAsPng(s, 960, 540); 
+
             return this;
         }
         public SpriteFont sprfont;
@@ -304,7 +267,6 @@ namespace perceptron
                     offset.Y += sprfont.LineSpacing;
                     firstGlyph = true;
                 }
-                //int glyphIndex = sprfont.
                 var glyph = sprfont.GetGlyphs()[c];
 
                 if (firstGlyph)
@@ -312,10 +274,8 @@ namespace perceptron
                     offset.X = Math.Max(glyph.LeftSideBearing, 0);
                     firstGlyph = false;
                 }
-                else
-                {
-                    offset.X += sprfont.Spacing + glyph.LeftSideBearing;
-                }
+                else offset.X += sprfont.Spacing + glyph.LeftSideBearing;
+
                 Vector2 currentOff = offset;
                 currentOff.X += glyph.Cropping.X;
                 currentOff.Y += glyph.Cropping.Y;
@@ -333,15 +293,13 @@ namespace perceptron
 
                 EnsureSpace(6, 4);
 
-                int colorID = 0; float packedData = 0; int z = 0; byte flipX = 0; byte flipY = 0;
-
-                float fw = size.X, fh = size.Y;
-
-                fw = fh = size.X;
 
 
-                float _x = glyph.BoundsInTexture.X, _y = glyph.BoundsInTexture.Y,
-                    _w = glyph.BoundsInTexture.Width, _h = glyph.BoundsInTexture.Height;//sprfont.Texture.Width, _h = sprfont.Texture.Height;
+                float _x = glyph.BoundsInTexture.X,
+                      _y = glyph.BoundsInTexture.Y,
+                      _w = glyph.BoundsInTexture.Width,
+                      _h = glyph.BoundsInTexture.Height;
+
                 _w += _x;
                 _h += _y;
 
@@ -349,11 +307,10 @@ namespace perceptron
                 _y /= sprfont.Texture.Height;
                 _w /= sprfont.Texture.Width;
                 _h /= sprfont.Texture.Height;
-                //_x = _y = 0;
-                //_w = _h = 1;
+
                 float f = 1111f;
 
-                Color cor = Color.White;//Vector3 cor = new Vector3(colorID, size.Y, packedData);
+                Color cor = Color.White;
 
                 index[indexCount++] = (short)(vertexCount + 0);
                 index[indexCount++] = (short)(vertexCount + 1);
@@ -362,13 +319,12 @@ namespace perceptron
                 index[indexCount++] = (short)(vertexCount + 3);
                 index[indexCount++] = (short)(vertexCount + 2);
 
-                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(0, 0, z), cor, new Vector2(_x, _y));
-                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(1, 0, z), cor, new Vector2(_w, _y));
-                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(0, 1, z), cor, new Vector2(_x, _h));
-                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(1, 1, z), cor, new Vector2(_w, _h));
+                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(0, 0, 0), cor, new Vector2(_x, _y));
+                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(1, 0, 0), cor, new Vector2(_w, _y));
+                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(0, 1, 0), cor, new Vector2(_x, _h));
+                vertex[vertexCount++] = new VertexPositionColorTexture(new Vector3(1, 1, 0), cor, new Vector2(_w, _h));
 
-                Matrix world = Matrix.CreateTranslation(new Vector3(-.5f, -.5f, 0) * 0)
-                    //   * Matrix.CreateRotationZ(MathHelper.PiOver2 * flipX)
+                Matrix world = Matrix.CreateTranslation(new Vector3(-.5f, -.5f, 0) * 0)                
                     * Matrix.CreateScale(new Vector3(glyph.BoundsInTexture.Width * size.X, glyph.BoundsInTexture.Height * size.Y, 1))
                     * Matrix.CreateTranslation(new Vector3(pos + currentOff, 0));
 
